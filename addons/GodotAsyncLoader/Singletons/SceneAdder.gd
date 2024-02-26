@@ -21,7 +21,7 @@ func set_groups(groups : Array) -> void:
 
 func _enter_tree() -> void:
 	_thread = Thread.new()
-	var err = _thread.start(self, "_run_thread", 0, Thread.PRIORITY_LOW)
+	var err = _thread.start(Callable(self, "_run_thread").bind(0), Thread.PRIORITY_LOW)
 	assert(err == OK)
 
 func _exit_tree() -> void:
@@ -32,7 +32,7 @@ func _exit_tree() -> void:
 		_thread.wait_to_finish()
 		_thread = null
 
-func add_scene(on_done_cb : FuncRef, target : Node, path : String, pos : Vector3, is_pos_global : bool, cb : FuncRef, instance : Node, data : Dictionary, has_priority : bool) -> void:
+func add_scene(on_done_cb : Callable, target : Node, path : String, pos : Vector3, is_pos_global : bool, cb : Callable, instance : Node, data : Dictionary, has_priority : bool) -> void:
 	var entry := {
 		"target" : target,
 		"on_done_cb" : on_done_cb,
@@ -63,12 +63,12 @@ func _can_add(group : String) -> bool:
 			return false
 		# Return true if there are any instances of this group to add
 		0:
-			return not _to_adds[group].empty()
+			return not _to_adds[group].is_empty()
 		# Return true if there are any instances of this group to add
 		# and the previous group has no more instances to add
 		_:
 			var prev_group = GROUPS[i - 1]
-			return not _to_adds[group].empty() and not _can_add(prev_group)
+			return not _to_adds[group].is_empty() and not _can_add(prev_group)
 
 	return false
 
@@ -107,22 +107,22 @@ func _add_entry_parent(entry, group : String) -> void:
 	var data = entry["data"]
 	print("+++ Adding %s \"%s\"" % [group, instance.name])
 	#on_done_cb.call_func(target, path, pos, is_pos_global, cb, instance, data)
-	on_done_cb.call_deferred("call_func", target, path, pos, is_pos_global, cb, instance, data)
+	on_done_cb.call_deferred(target, path, pos, is_pos_global, cb, instance, data)
 
 func _add_entry_child(entry, group : String) -> void:
 	var parent = entry["parent"]
 	var owner = entry.get("owner", null)
 	var instance = entry["instance"]
-	var transform = entry["transform"]
-	instance.transform = transform
+	# var transform = entry["transform"]
+	# instance.transform = transform
 	self.call_deferred("_on_add_entry_child_cb", parent, owner, instance, group)
 
 func _on_add_entry_child_cb(parent : Node, owner : Node, instance : Node, group : String) -> void:
-	var start := OS.get_ticks_msec()
+	var start := Time.get_ticks_msec()
 	parent.add_child(instance)
 	if owner:
 		instance.set_owner(owner)
-	var time := OS.get_ticks_msec() - start
+	var time := Time.get_ticks_msec() - start
 	print("+++ Adding %s \"%s\" %s ms" % [group, instance.name, time])
 
 func _get_destination_queue_for_instance(instance : Node, has_priority : bool, default_queue = null):
@@ -153,34 +153,31 @@ func _check_for_new_scenes() -> bool:
 		var to = _get_destination_queue_for_instance(instance, has_priority, _to_adds[GROUPS[0]])
 
 		# Add the scene
-		var entry_copy = entry.duplicate()
-		#entry_copy["target"] = target
-		entry_copy["is_child"] = false
-		to.append(entry_copy)
+		entry["is_child"] = false
+		to.append(entry)
 		has_new_scenes = true
 
-		# Remove all the scene's children to add later
-		for child in _recursively_get_all_children_of_type(instance, Node):
+		# TODO:Remove all the scene's children to add later
+		for child in _recursively_get_all_children_of_type(instance):
 			to = _get_destination_queue_for_instance(child, false, null)
 			if to != null:
 				var parent = child.get_parent()
 				var owner = instance
 				if parent != null:
-					to.append({ "is_child" : true, "instance" : child, "parent" : parent, "owner" : owner, "transform" : child.transform })
+					to.append({ "is_child" : true, "instance" : child, "parent" : parent, "owner" : owner})#, "transform" : child.transform })
 					parent.remove_child(child)
-
 	return has_new_scenes
 
-func _recursively_get_all_children_of_type(target : Node, target_type) -> Array:
+func _recursively_get_all_children_of_type(target : Node) -> Array:
 	var matches := []
 	var to_search := [target]
-	while not to_search.empty():
+	while not to_search.is_empty():
 		var entry = to_search.pop_front()
 
 		for child in entry.get_children():
 			to_search.append(child)
 
-		if entry is target_type:
+		if entry is Node:
 			matches.append(entry)
 
 	return matches

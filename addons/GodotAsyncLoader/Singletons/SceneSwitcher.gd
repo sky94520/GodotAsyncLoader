@@ -1,11 +1,11 @@
 # Copyright (c) 2021-2022 Matthew Brennan Jones <matthew.brennan.jones@gmail.com>
 # This file is licensed under the MIT License
 # https://github.com/ImmersiveRPG/GodotAsyncLoader
-
+# Open loading scene, and call SceneLoader to load scene
 extends Node
 
 
-func change_scene(path : String, loading_path := "") -> void:
+func change_scene_to_file(path : String, loading_path := "") -> void:
 	var data := {}
 
 	# Make sure the scene exists before starting to load
@@ -19,39 +19,39 @@ func change_scene(path : String, loading_path := "") -> void:
 		return
 
 	# Show the loading screen
-	var start := OS.get_ticks_msec()
+	var start := Time.get_ticks_msec()
 	if loading_path:
-		var err : int = get_tree().change_scene(loading_path)
+		var err : int = get_tree().change_scene_to_file(loading_path)
 		assert(err == OK)
 		#if SceneLoader._is_logging_loads: print("!!!!!! MAIN: changed to loading scene for %s ms" % [OS.get_ticks_msec() - start])
-	if SceneLoader._is_logging_loads: data["change_scene"] = OS.get_ticks_msec() - start
+	if SceneLoader._is_logging_loads: data["change_scene_to_file"] = Time.get_ticks_msec() - start
 
 	# Load the scene
 	var pos := Vector3.INF
-	SceneLoader.load_scene_async_with_cb(self, path, pos, true, funcref(self, "_on_scene_loaded"), data)
+	SceneLoader.load_scene_async_with_cb(self, path, pos, true, Callable(self, "_on_scene_loaded"), data)
 
 func _on_scene_loaded(path : String, node : Node, _pos : Vector3, _is_pos_global : bool, data : Dictionary) -> void:
 	var tree : SceneTree = self.get_tree()
 	var new_scene = node
 
 	# Remove the old scene
-	var start := OS.get_ticks_msec()
+	var start := Time.get_ticks_msec()
 	var old_scene = tree.current_scene
 	tree.root.remove_child(old_scene)
 	old_scene.queue_free()
-	if SceneLoader._is_logging_loads: data["remove_scene"] = OS.get_ticks_msec() - start
+	if SceneLoader._is_logging_loads: data["remove_scene"] = Time.get_ticks_msec() - start
 
 	# Add the new scene
-	start = OS.get_ticks_msec()
+	start = Time.get_ticks_msec()
 	tree.root.add_child(new_scene)
-	var time := OS.get_ticks_msec() - start
+	var time := Time.get_ticks_msec() - start
 	if SceneLoader._is_logging_loads: data["add"] = time
 	print("+++ Adding %s \"%s\" %s ms" % ["scene", new_scene.name, time])
 
 	# Change to the new scene
-	start = OS.get_ticks_msec()
+	start = Time.get_ticks_msec()
 	tree.set_current_scene(new_scene)
-	if SceneLoader._is_logging_loads: data["set_current"] = OS.get_ticks_msec() - start
+	if SceneLoader._is_logging_loads: data["set_current"] = Time.get_ticks_msec() - start
 
 	if SceneLoader._is_logging_loads:
 		var message := ""

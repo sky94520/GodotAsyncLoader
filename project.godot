@@ -6,12 +6,13 @@
 ;   [section] ; section goes between []
 ;   param=value ; assign values to parameters
 
-config_version=4
+config_version=5
 
 [application]
 
 config/name="Godot Async Loader"
 run/main_scene="res://examples/Start/Start.tscn"
+config/features=PackedStringArray("4.2")
 config/icon="res://icon.png"
 
 [autoload]
@@ -21,9 +22,13 @@ SceneLoader="*res://addons/GodotAsyncLoader/Singletons/SceneLoader.gd"
 SceneAdder="*res://addons/GodotAsyncLoader/Singletons/SceneAdder.gd"
 SceneSwitcher="*res://addons/GodotAsyncLoader/Singletons/SceneSwitcher.gd"
 
+[dotnet]
+
+project/assembly_name="Godot Async Loader"
+
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/GodotAsyncLoader/plugin.cfg" )
+enabled=PackedStringArray("res://addons/GodotAsyncLoader/plugin.cfg")
 
 [physics]
 
@@ -31,4 +36,4 @@ common/enable_pause_aware_picking=true
 
 [rendering]
 
-environment/default_environment="res://default_env.tres"
+environment/defaults/default_environment="res://default_env.tres"

@@ -4,7 +4,7 @@
 
 extends Node
 
-var _is_logging_loads := false
+var _is_logging_loads := true
 var _is_running := false
 var _thread : Thread
 var _scenes := {}
@@ -14,7 +14,7 @@ var _to_load_mutex := Mutex.new()
 
 func _enter_tree() -> void:
 	_thread = Thread.new()
-	var err = _thread.start(self, "_run_thread", 0, Thread.PRIORITY_LOW)
+	var err = _thread.start(Callable(self, "_run_thread").bind(0), Thread.PRIORITY_LOW)
 	assert(err == OK)
 
 func _exit_tree() -> void:
@@ -25,7 +25,7 @@ func _exit_tree() -> void:
 		_thread.wait_to_finish()
 		_thread = null
 
-func load_scene_async_with_cb(target : Node, path : String, pos : Vector3, is_pos_global : bool, cb : FuncRef, data : Dictionary, has_priority := false) -> void:
+func load_scene_async_with_cb(target : Node, path : String, pos : Vector3, is_pos_global : bool, cb : Callable, data : Dictionary, has_priority := false) -> void:
 	var entry := {
 		"path" : path,
 		"cb" : cb,
@@ -47,27 +47,27 @@ func load_scene_async_with_cb(target : Node, path : String, pos : Vector3, is_po
 	#print(_to_load)
 
 func load_scene_async(target : Node, path : String, pos : Vector3, is_pos_global : bool) -> void:
-	self.load_scene_async_with_cb(target, path, pos, is_pos_global, null, {})
+	self.load_scene_async_with_cb(target, path, pos, is_pos_global, Callable(), {})
 
 func load_scene_sync(target : Node, path : String) -> Node:
 	var data := {}
 
 	# Load the scene
-	var start := OS.get_ticks_msec()
+	var start := Time.get_ticks_msec()
 	var scene = _get_cached_scene(path)
 	if scene == null: return null
-	if SceneLoader._is_logging_loads: data["load"] = OS.get_ticks_msec() - start
+	if SceneLoader._is_logging_loads: data["load"] = Time.get_ticks_msec() - start
 
 	# Instance the scene
-	start = OS.get_ticks_msec()
-	var instance = scene.instance()
-	if SceneLoader._is_logging_loads: data["instance"] = OS.get_ticks_msec() - start
+	start = Time.get_ticks_msec()
+	var instance = scene.instantiate()
+	if SceneLoader._is_logging_loads: data["instance"] = Time.get_ticks_msec() - start
 
 	# Add the scene to the target
-	start = OS.get_ticks_msec()
+	start = Time.get_ticks_msec()
 	if target:
 		target.add_child(instance)
-	if SceneLoader._is_logging_loads: data["add"] = OS.get_ticks_msec() - start
+	if SceneLoader._is_logging_loads: data["add"] = Time.get_ticks_msec() - start
 
 	if SceneLoader._is_logging_loads:
 		print("!!!!!! SYNC scene %s\n    load %s ms in MAIN!!!!!!!!!!!!\n    instance %s ms in MAIN!!!!!!!!!!!!\n    add %s ms in MAIN!!!!!!!!!!!!" % [path, data["load"], data["instance"], data["add"]])
@@ -99,24 +99,23 @@ func _run_thread(_arg : int) -> void:
 					push_error("Scene files does not exist: %s" % [path])
 				else:
 					# Load the scene
-					var start := OS.get_ticks_msec()
+					var start := Time.get_ticks_msec()
 					var scene = _get_cached_scene(path)
-					if SceneLoader._is_logging_loads: data["load"] = OS.get_ticks_msec() - start
+					if SceneLoader._is_logging_loads: data["load"] = Time.get_ticks_msec() - start
 
 					# Instance the scene
-					start = OS.get_ticks_msec()
-					var instance = scene.instance()
-					if SceneLoader._is_logging_loads: data["instance"] = OS.get_ticks_msec() - start
+					start = Time.get_ticks_msec()
+					var instance = scene.instantiate()
+					if SceneLoader._is_logging_loads: data["instance"] = Time.get_ticks_msec() - start
 
 					# Send the instance to the callback in the main thread
-					SceneAdder.add_scene(funcref(self, "_on_done"), target, path, pos, is_pos_global, cb, instance, data, has_priority)
+					SceneAdder.add_scene(Callable(self, "_on_done"), target, path, pos, is_pos_global, cb, instance, data, has_priority)
 					#self.call_deferred("_on_done", target, path, pos, is_pos_global, cb, instance, data)
 					#print("??????? instance.global_transform.origin: %s" % instance.global_transform.origin)
-
 		OS.delay_msec(2)
 
-func _on_done(target : Node, path : String, pos : Vector3, is_pos_global : bool, cb : FuncRef, instance : Node, data : Dictionary) -> void:
-	var start := OS.get_ticks_msec()
+func _on_done(target : Node, path : String, pos : Vector3, is_pos_global : bool, cb : Callable, instance : Node, data : Dictionary) -> void:
+	var start := Time.get_ticks_msec()
 
 	# Just return if target is invalid
 	if not is_instance_valid(target):
@@ -132,7 +131,7 @@ func _on_done(target : Node, path : String, pos : Vector3, is_pos_global : bool,
 
 	if cb != null:
 		#cb.call_deferred("call_func", path, instance, pos, is_pos_global, data)
-		cb.call_func(path, instance, pos, is_pos_global, data)
+		cb.call(path, instance, pos, is_pos_global, data)
 	else:
 		# Set the instance position
 		if pos != Vector3.INF and "transform" in instance:
@@ -145,7 +144,7 @@ func _on_done(target : Node, path : String, pos : Vector3, is_pos_global : bool,
 		# Add the instance to the target
 		target.add_child(instance)
 
-		if SceneLoader._is_logging_loads: data["add"] = OS.get_ticks_msec() - start
+		if SceneLoader._is_logging_loads: data["add"] = Time.get_ticks_msec() - start
 
 		if SceneLoader._is_logging_loads:
 			var message := ""

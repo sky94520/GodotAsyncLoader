@@ -2,9 +2,9 @@
 # This file is licensed under the MIT License
 # https://github.com/ImmersiveRPG/GodotAsyncLoader
 
-extends KinematicBody
+extends CharacterBody3D
 
-const FLOOR_SLOPE_MAX_THRESHOLD := deg2rad(60)
+const FLOOR_SLOPE_MAX_THRESHOLD := deg_to_rad(60)
 const HP_MAX := 100.0
 const JUMP_IMPULSE := 20.0
 const ROTATION_SPEED := 6.0
@@ -45,7 +45,15 @@ func _physics_process(delta : float) -> void:
 	_snap_vector = -get_floor_normal() if is_on_floor() else Vector3.DOWN
 
 	# Actually move
-	_velocity = move_and_slide_with_snap(_velocity, _snap_vector, Vector3.UP, true, 4, FLOOR_SLOPE_MAX_THRESHOLD, false)
+	set_velocity(_velocity)
+	# TODOConverter3To4 looks that snap in Godot 4 is float, not vector like in Godot 3 - previous value `_snap_vector`
+	set_up_direction(Vector3.UP)
+	set_floor_stop_on_slope_enabled(true)
+	set_max_slides(4)
+	set_floor_max_angle(FLOOR_SLOPE_MAX_THRESHOLD)
+	# TODOConverter3To4 infinite_inertia were removed in Godot 4 - previous value `false`
+	move_and_slide()
+	_velocity = velocity
 
 
 func _on_TimerChangeDestination_timeout() -> void:
